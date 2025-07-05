@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,18 +8,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Bell, Calendar, Home, MessageCircle, Search, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
-
-// Mock authentication - in a real app, this would come from auth context
-const isAuthenticated = false;
-const currentUser = {
-  name: "John Doe",
-  avatar: "/placeholder.svg",
-  role: "student"
-};
+import { useAuth } from "@/contexts/AuthContext";
 
 export function Navbar() {
+  const { user, isAuthenticated, logout } = useAuth();
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
       <div className="container flex h-16 items-center">
@@ -67,17 +62,16 @@ export function Navbar() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <img
-                      src={currentUser.avatar}
-                      alt={currentUser.name}
-                      className="h-8 w-8 rounded-full object-cover"
-                    />
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user?.avatar} alt={user?.name} />
+                      <AvatarFallback>{user?.name?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>{currentUser.name}</DropdownMenuLabel>
+                  <DropdownMenuLabel>{user?.name}</DropdownMenuLabel>
                   <DropdownMenuLabel className="text-xs text-muted-foreground">
-                    {currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)}
+                    {user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1)}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <Link to="/profile">
@@ -87,7 +81,7 @@ export function Navbar() {
                     </DropdownMenuItem>
                   </Link>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>Log out</DropdownMenuItem>
+                  <DropdownMenuItem onClick={logout}>Log out</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </>

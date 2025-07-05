@@ -1,81 +1,82 @@
-
+import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PostCard } from "@/components/PostCard";
-import { UserRole, Post } from "@/types";
-import { BookOpen, Building, Calendar, Edit, Mail, MapPin, Pencil, User as UserIcon } from "lucide-react";
-
-// Mock user data
-const userData = {
-  id: "1",
-  name: "John Doe",
-  email: "john.doe@university.edu",
-  role: "student" as UserRole,
-  avatar: "/placeholder.svg",
-  bio: "Computer Science student passionate about web development and AI. Looking for project collaborations.",
-  department: "Computer Science",
-  yearOfStudy: 3,
-  location: "University Campus, Building A",
-  joinedDate: "September 2021",
-  followers: ["2", "3", "4"],
-  following: ["2", "5", "6"],
-};
-
-// Mock posts
-const userPosts: Post[] = [
-  {
-    id: "1",
-    title: "My React Project Roadmap",
-    content: "I'm working on a new React project for my web development course. Here's my plan for the next two weeks...",
-    authorId: "1",
-    authorName: "John Doe",
-    authorRole: "student",
-    authorAvatar: "/placeholder.svg",
-    type: "project",
-    createdAt: "2023-04-02T10:30:00Z",
-    likes: 12,
-    comments: []
-  },
-  {
-    id: "2",
-    title: "Notes from Database Management Systems",
-    content: "Here are my notes from today's lecture on relational database design and normalization...",
-    authorId: "1",
-    authorName: "John Doe",
-    authorRole: "student",
-    authorAvatar: "/placeholder.svg",
-    type: "note",
-    createdAt: "2023-03-28T14:15:00Z",
-    likes: 8,
-    comments: [
-      {
-        id: "c1",
-        content: "Thanks for sharing these notes!",
-        authorId: "3",
-        authorName: "Alex Smith",
-        createdAt: "2023-03-28T16:20:00Z"
-      }
-    ]
-  }
-];
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/contexts/AuthContext";
+import { useData } from "@/contexts/DataContext";
+import { BookOpen, Building, Calendar, Edit, Mail, MapPin, Save, X } from "lucide-react";
+import { Navigate } from "react-router-dom";
+import { toast } from "@/hooks/use-toast";
 
 export default function Profile() {
-  // Get role-specific details
+  const { user, isAuthenticated, updateUser } = useAuth();
+  const { getUserPosts } = useData();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    name: user?.name || '',
+    bio: user?.bio || '',
+    department: user?.department || '',
+    yearOfStudy: user?.yearOfStudy || 1,
+    subjects: user?.subjects?.join(', ') || ''
+  });
+
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  const userPosts = getUserPosts(user?.id || '');
+
+  const handleSave = () => {
+    const updates: any = {
+      name: editData.name,
+      bio: editData.bio,
+      department: editData.department,
+    };
+
+    if (user?.role === 'student') {
+      updates.yearOfStudy = editData.yearOfStudy;
+    } else if (user?.role === 'teacher') {
+      updates.subjects = editData.subjects.split(',').map(s => s.trim()).filter(s => s);
+    }
+
+    updateUser(updates);
+    setIsEditing(false);
+    toast({
+      title: "Profile updated!",
+      description: "Your profile has been successfully updated.",
+    });
+  };
+
+  const handleCancel = () => {
+    setEditData({
+      name: user?.name || '',
+      bio: user?.bio || '',
+      department: user?.department || '',
+      yearOfStudy: user?.yearOfStudy || 1,
+      subjects: user?.subjects?.join(', ') || ''
+    });
+    setIsEditing(false);
+  };
+
   const getRoleSpecificDetails = () => {
-    switch (userData.role) {
+    switch (user?.role) {
       case "student":
         return (
           <>
             <div className="flex items-center gap-2 text-muted-foreground">
               <BookOpen className="h-4 w-4" />
-              <span>Year {userData.yearOfStudy}</span>
+              <span>Year {user.yearOfStudy}</span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Building className="h-4 w-4" />
-              <span>{userData.department}</span>
+              <span>{user.department}</span>
             </div>
           </>
         );
@@ -84,7 +85,7 @@ export default function Profile() {
           <>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Building className="h-4 w-4" />
-              <span>{userData.department}</span>
+              <span>{user.department}</span>
             </div>
             <Badge>Professor</Badge>
           </>
@@ -116,26 +117,49 @@ export default function Profile() {
           <div className="p-6">
             <div className="flex flex-col md:flex-row md:items-end gap-4 -mt-16 md:mb-6">
               <Avatar className="h-24 w-24 border-4 border-white shadow-md">
-                <AvatarImage src={userData.avatar} alt={userData.name} />
-                <AvatarFallback>{userData.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarImage src={user?.avatar} alt={user?.name} />
+                <AvatarFallback>{user?.name?.substring(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
               
               <div className="flex-1 mt-4 md:mt-0">
                 <div className="flex flex-col md:flex-row md:items-center justify-between">
                   <div>
-                    <h1 className="text-2xl font-bold">{userData.name}</h1>
+                    {isEditing ? (
+                      <Input
+                        value={editData.name}
+                        onChange={(e) => setEditData({...editData, name: e.target.value})}
+                        className="text-2xl font-bold mb-2"
+                      />
+                    ) : (
+                      <h1 className="text-2xl font-bold">{user?.name}</h1>
+                    )}
                     <div className="flex flex-col md:flex-row md:items-center md:gap-4 text-sm mt-1">
                       <Badge variant="outline" className="md:mb-0 mb-2 w-fit">
-                        {userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}
+                        {user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1)}
                       </Badge>
                       {getRoleSpecificDetails()}
                     </div>
                   </div>
                   
-                  <Button className="mt-4 md:mt-0">
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit Profile
-                  </Button>
+                  <div className="mt-4 md:mt-0 flex gap-2">
+                    {isEditing ? (
+                      <>
+                        <Button onClick={handleSave} size="sm">
+                          <Save className="h-4 w-4 mr-2" />
+                          Save
+                        </Button>
+                        <Button onClick={handleCancel} variant="outline" size="sm">
+                          <X className="h-4 w-4 mr-2" />
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <Button onClick={() => setIsEditing(true)}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit Profile
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -143,63 +167,145 @@ export default function Profile() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
               {/* Left Column: User Info */}
               <div className="space-y-6">
-                <div>
-                  <h3 className="font-medium mb-2">About</h3>
-                  <p className="text-muted-foreground text-sm">{userData.bio}</p>
-                </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>About</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {isEditing ? (
+                      <Textarea
+                        value={editData.bio}
+                        onChange={(e) => setEditData({...editData, bio: e.target.value})}
+                        placeholder="Tell us about yourself..."
+                        className="min-h-[100px]"
+                      />
+                    ) : (
+                      <p className="text-muted-foreground text-sm">{user?.bio}</p>
+                    )}
+                  </CardContent>
+                </Card>
                 
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span>{userData.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span>{userData.location}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span>Joined {userData.joinedDate}</span>
-                  </div>
-                </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {isEditing ? (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="department">Department</Label>
+                          <Input
+                            id="department"
+                            value={editData.department}
+                            onChange={(e) => setEditData({...editData, department: e.target.value})}
+                            placeholder="Department"
+                          />
+                        </div>
+                        
+                        {user?.role === 'student' && (
+                          <div className="space-y-2">
+                            <Label htmlFor="yearOfStudy">Year of Study</Label>
+                            <Input
+                              id="yearOfStudy"
+                              type="number"
+                              min="1"
+                              max="6"
+                              value={editData.yearOfStudy}
+                              onChange={(e) => setEditData({...editData, yearOfStudy: parseInt(e.target.value)})}
+                            />
+                          </div>
+                        )}
+                        
+                        {user?.role === 'teacher' && (
+                          <div className="space-y-2">
+                            <Label htmlFor="subjects">Subjects (comma-separated)</Label>
+                            <Input
+                              id="subjects"
+                              value={editData.subjects}
+                              onChange={(e) => setEditData({...editData, subjects: e.target.value})}
+                              placeholder="Computer Science, Mathematics"
+                            />
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <span>{user?.email}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Building className="h-4 w-4 text-muted-foreground" />
+                          <span>{user?.department || 'Not specified'}</span>
+                        </div>
+                        {user?.role === 'teacher' && user?.subjects && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <BookOpen className="h-4 w-4 text-muted-foreground" />
+                            <span>{user.subjects.join(', ')}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span>Joined EduCollab</span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
                 
-                <div className="flex gap-4">
-                  <div>
-                    <div className="font-medium">{userData.followers.length}</div>
-                    <div className="text-sm text-muted-foreground">Followers</div>
-                  </div>
-                  <div>
-                    <div className="font-medium">{userData.following.length}</div>
-                    <div className="text-sm text-muted-foreground">Following</div>
-                  </div>
-                </div>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex gap-4">
+                      <div>
+                        <div className="font-medium">{user?.followers?.length || 0}</div>
+                        <div className="text-sm text-muted-foreground">Followers</div>
+                      </div>
+                      <div>
+                        <div className="font-medium">{user?.following?.length || 0}</div>
+                        <div className="text-sm text-muted-foreground">Following</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
               
               {/* Right Column: User Content */}
               <div className="md:col-span-2">
                 <Tabs defaultValue="posts">
                   <TabsList className="mb-4">
-                    <TabsTrigger value="posts">Posts</TabsTrigger>
-                    <TabsTrigger value="projects">Projects</TabsTrigger>
-                    <TabsTrigger value="notes">Notes</TabsTrigger>
+                    <TabsTrigger value="posts">Posts ({userPosts.length})</TabsTrigger>
+                    <TabsTrigger value="projects">Projects ({userPosts.filter(p => p.type === 'project').length})</TabsTrigger>
+                    <TabsTrigger value="notes">Notes ({userPosts.filter(p => p.type === 'note').length})</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="posts" className="space-y-4">
-                    {userPosts.map(post => (
-                      <PostCard key={post.id} post={post} />
-                    ))}
+                    {userPosts.length > 0 ? (
+                      userPosts.map(post => (
+                        <PostCard key={post.id} post={post} />
+                      ))
+                    ) : (
+                      <p className="text-center text-muted-foreground py-8">No posts yet.</p>
+                    )}
                   </TabsContent>
                   
                   <TabsContent value="projects" className="space-y-4">
-                    {userPosts.filter(post => post.type === "project").map(post => (
-                      <PostCard key={post.id} post={post} />
-                    ))}
+                    {userPosts.filter(post => post.type === "project").length > 0 ? (
+                      userPosts.filter(post => post.type === "project").map(post => (
+                        <PostCard key={post.id} post={post} />
+                      ))
+                    ) : (
+                      <p className="text-center text-muted-foreground py-8">No projects yet.</p>
+                    )}
                   </TabsContent>
                   
                   <TabsContent value="notes" className="space-y-4">
-                    {userPosts.filter(post => post.type === "note").map(post => (
-                      <PostCard key={post.id} post={post} />
-                    ))}
+                    {userPosts.filter(post => post.type === "note").length > 0 ? (
+                      userPosts.filter(post => post.type === "note").map(post => (
+                        <PostCard key={post.id} post={post} />
+                      ))
+                    ) : (
+                      <p className="text-center text-muted-foreground py-8">No notes yet.</p>
+                    )}
                   </TabsContent>
                 </Tabs>
               </div>
